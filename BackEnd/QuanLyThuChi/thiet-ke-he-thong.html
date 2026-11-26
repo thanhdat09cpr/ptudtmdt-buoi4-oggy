@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="vi"><head><meta charset="UTF-8"><title>Thiết kế hệ thống</title>
+<style>
+  body { font-family: "Segoe UI", Arial, sans-serif; margin: 24px; background: #fff; color: #1f2d24; }
+  h1 { color: #146d37; margin: 0 0 4px; } h2 { color: #146d37; margin: 28px 0 10px; }
+  .row { display: flex; align-items: center; gap: 14px; }
+  .box { border: 2px solid #146d37; border-radius: 10px; padding: 12px 16px; background: #f1f8f3; min-width: 190px; }
+  .box b { display: block; color: #146d37; margin-bottom: 4px; } .box small { color: #555; line-height: 1.5; display: block; }
+  .arrow { font-size: 13px; color: #555; text-align: center; min-width: 120px; }
+  .arrow div { font-size: 26px; color: #146d37; line-height: 1; }
+  .ent { border: 2px solid #146d37; border-radius: 8px; overflow: hidden; width: 330px; font-size: 14px; }
+  .ent .h { background: #146d37; color: #fff; padding: 8px 12px; font-weight: 600; }
+  .ent div.f { padding: 5px 12px; border-top: 1px solid #dde5df; display: flex; justify-content: space-between; }
+  .ent .k { color: #b06d00; font-weight: 600; } .ent small { color: #777; }
+  table { border-collapse: collapse; font-size: 13.5px; } th, td { border: 1px solid #cfd9d2; padding: 6px 10px; text-align: left; } th { background: #e3efe7; }
+  code { background: #eef2ef; padding: 1px 5px; border-radius: 4px; }
+</style></head>
+<body>
+<h1>Thiết kế hệ thống Quản lý thu chi</h1>
+
+<h2>1. Kiến trúc 3 lớp (Client – Server – Database)</h2>
+<div class="row">
+  <div class="box"><b>Trình duyệt (Front-end)</b><small>public/index.html<br>HTML + CSS + JavaScript<br>Gọi API bằng fetch()</small></div>
+  <div class="arrow">HTTP / JSON<div>⇄</div>REST API</div>
+  <div class="box"><b>Server Node.js (Back-end)</b><small>server.js · module http<br>Định tuyến API, kiểm tra dữ liệu<br>Phục vụ file giao diện</small></div>
+  <div class="arrow">SQL (node:sqlite)<div>⇄</div></div>
+  <div class="box"><b>Database SQLite</b><small>thuchi.db<br>Bảng categories<br>Bảng transactions</small></div>
+</div>
+
+<h2>2. Sơ đồ quan hệ dữ liệu (ERD)</h2>
+<div class="row" style="align-items:flex-start">
+  <div class="ent"><div class="h">categories (Danh mục)</div>
+    <div class="f"><span class="k">🔑 id</span><small>INTEGER, PK</small></div>
+    <div class="f"><span>name</span><small>TEXT, UNIQUE</small></div>
+    <div class="f"><span>type</span><small>'thu' | 'chi'</small></div>
+  </div>
+  <div class="arrow" style="margin-top:40px">1 &nbsp;—&nbsp; n<div>⟶</div>category_id</div>
+  <div class="ent"><div class="h">transactions (Giao dịch)</div>
+    <div class="f"><span class="k">🔑 id</span><small>INTEGER, PK</small></div>
+    <div class="f"><span>title</span><small>TEXT</small></div>
+    <div class="f"><span>amount</span><small>INTEGER &gt; 0</small></div>
+    <div class="f"><span>type</span><small>'thu' | 'chi'</small></div>
+    <div class="f"><span class="k">🔗 category_id</span><small>FK → categories.id</small></div>
+    <div class="f"><span>date</span><small>TEXT (YYYY-MM-DD)</small></div>
+    <div class="f"><span>status</span><small>'cho_xu_ly' | 'hoan_thanh'</small></div>
+    <div class="f"><span>note</span><small>TEXT</small></div>
+    <div class="f"><span>created_at</span><small>TEXT</small></div>
+  </div>
+</div>
+
+<h2>3. Danh sách API</h2>
+<table>
+  <tr><th>Phương thức</th><th>Đường dẫn</th><th>Chức năng</th></tr>
+  <tr><td>GET</td><td><code>/api/transactions?type=&amp;status=&amp;month=&amp;q=</code></td><td>Danh sách giao dịch (lọc, tìm kiếm)</td></tr>
+  <tr><td>GET</td><td><code>/api/transactions/:id</code></td><td>Xem chi tiết 1 giao dịch</td></tr>
+  <tr><td>POST</td><td><code>/api/transactions</code></td><td>Thêm giao dịch</td></tr>
+  <tr><td>PUT</td><td><code>/api/transactions/:id</code></td><td>Sửa giao dịch</td></tr>
+  <tr><td>DELETE</td><td><code>/api/transactions/:id</code></td><td>Xoá giao dịch</td></tr>
+  <tr><td>PATCH</td><td><code>/api/transactions/:id/status</code></td><td>Cập nhật trạng thái (Chờ xử lý ⇄ Hoàn thành)</td></tr>
+  <tr><td>GET</td><td><code>/api/stats?month=</code></td><td>Thống kê tổng thu, chi, số dư, theo danh mục, theo tháng</td></tr>
+  <tr><td>GET</td><td><code>/api/categories</code></td><td>Danh sách danh mục</td></tr>
+</table>
+</body></html>

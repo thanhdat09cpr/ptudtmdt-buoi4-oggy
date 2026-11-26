@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Quản lý thu chi</title>
+<style>
+  :root { --green:#146d37; --green2:#60b946; --red:#d64545; --bg:#f3f6f4; --card:#fff; --text:#1f2d24; --muted:#6b7a70; --border:#dde5df; }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family: "Segoe UI", Arial, sans-serif; background:var(--bg); color:var(--text); }
+  header { background:var(--green); color:#fff; padding:16px 32px; display:flex; align-items:center; justify-content:space-between; }
+  header h1 { margin:0; font-size:22px; }
+  header small { opacity:.8; }
+  nav { display:flex; gap:8px; }
+  nav button { background:transparent; color:#fff; border:1px solid rgba(255,255,255,.5); padding:8px 16px; border-radius:6px; cursor:pointer; font-size:14px; }
+  nav button.active { background:#fff; color:var(--green); font-weight:600; }
+  main { max-width:1100px; margin:24px auto; padding:0 16px; }
+  .cards { display:grid; grid-template-columns:repeat(4,1fr); gap:16px; margin-bottom:20px; }
+  .card { background:var(--card); border:1px solid var(--border); border-radius:10px; padding:16px; }
+  .card .label { color:var(--muted); font-size:13px; }
+  .card .value { font-size:22px; font-weight:700; margin-top:6px; }
+  .thu { color:var(--green); } .chi { color:var(--red); }
+  .toolbar { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px; }
+  input, select, textarea { padding:8px 10px; border:1px solid var(--border); border-radius:6px; font-size:14px; font-family:inherit; }
+  .btn { padding:8px 14px; border:0; border-radius:6px; cursor:pointer; font-size:14px; }
+  .btn-primary { background:var(--green); color:#fff; } .btn-primary:hover { background:var(--green2); }
+  .btn-light { background:#eef2ef; color:var(--text); }
+  .btn-danger { background:#fdecec; color:var(--red); }
+  table { width:100%; border-collapse:collapse; background:var(--card); border-radius:10px; overflow:hidden; border:1px solid var(--border); }
+  th, td { padding:10px 12px; text-align:left; border-bottom:1px solid var(--border); font-size:14px; }
+  th { background:#e8f1eb; font-weight:600; }
+  td.num { text-align:right; font-variant-numeric: tabular-nums; }
+  .badge { padding:3px 10px; border-radius:20px; font-size:12px; cursor:pointer; border:0; }
+  .badge.hoan_thanh { background:#dff3e4; color:var(--green); }
+  .badge.cho_xu_ly { background:#fff4d6; color:#9a6b00; }
+  .actions button { margin-right:4px; }
+  .hidden { display:none !important; }
+  .modal-bg { position:fixed; inset:0; background:rgba(0,0,0,.35); display:flex; align-items:center; justify-content:center; }
+  .modal { background:#fff; border-radius:12px; padding:24px; width:460px; }
+  .modal h2 { margin-top:0; color:var(--green); }
+  .form-row { display:flex; flex-direction:column; margin-bottom:12px; }
+  .form-row label { font-size:13px; color:var(--muted); margin-bottom:4px; }
+  .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  .err { color:var(--red); font-size:13px; min-height:18px; }
+  .panel { background:var(--card); border:1px solid var(--border); border-radius:10px; padding:16px 20px; margin-bottom:20px; }
+  .panel h3 { margin-top:0; }
+  .chart { display:flex; align-items:flex-end; gap:28px; height:220px; padding:10px 10px 0; border-bottom:1px solid var(--border); }
+  .chart .grp { display:flex; flex-direction:column; align-items:center; flex:1; }
+  .chart .bars { display:flex; align-items:flex-end; gap:6px; height:190px; }
+  .chart .bar { width:28px; border-radius:4px 4px 0 0; }
+  .chart .bar.thu { background:var(--green2); } .chart .bar.chi { background:#ef8a8a; }
+  .chart .m { font-size:12px; color:var(--muted); margin-top:6px; }
+  .legend span { display:inline-block; width:12px; height:12px; border-radius:2px; margin:0 4px 0 12px; vertical-align:middle; }
+  .hbar { display:flex; align-items:center; gap:10px; margin:8px 0; font-size:14px; }
+  .hbar .name { width:110px; }
+  .hbar .track { flex:1; background:#eef2ef; height:14px; border-radius:7px; overflow:hidden; }
+  .hbar .fill { height:100%; }
+  .hbar .amt { width:120px; text-align:right; font-variant-numeric: tabular-nums; }
+  .toast { position:fixed; bottom:24px; right:24px; background:var(--green); color:#fff; padding:10px 18px; border-radius:8px; }
+</style>
+</head>
+<body>
+<header>
+  <div><h1>💰 Quản lý thu chi cá nhân</h1><small>Node.js + SQLite · Nguyễn Thanh Liêm</small></div>
+  <nav>
+    <button id="tab-list" class="active" onclick="showTab('list')">Giao dịch</button>
+    <button id="tab-stats" onclick="showTab('stats')">Thống kê</button>
+  </nav>
+</header>
+
+<main>
+  <section class="cards" id="cards"></section>
+
+  <!-- ===== TAB GIAO DỊCH ===== -->
+  <section id="view-list">
+    <div class="toolbar">
+      <input id="f-q" placeholder="🔍 Tìm theo tên..." oninput="loadList()">
+      <select id="f-type" onchange="loadList()"><option value="">Tất cả loại</option><option value="thu">Thu</option><option value="chi">Chi</option></select>
+      <select id="f-status" onchange="loadList()"><option value="">Tất cả trạng thái</option><option value="cho_xu_ly">Chờ xử lý</option><option value="hoan_thanh">Hoàn thành</option></select>
+      <input id="f-month" type="month" onchange="loadList()">
+      <span style="flex:1"></span>
+      <button class="btn btn-primary" onclick="openForm()">+ Thêm giao dịch</button>
+    </div>
+    <table>
+      <thead><tr><th>#</th><th>Ngày</th><th>Tên giao dịch</th><th>Danh mục</th><th>Loại</th><th style="text-align:right">Số tiền</th><th>Trạng thái</th><th>Thao tác</th></tr></thead>
+      <tbody id="rows"></tbody>
+    </table>
+  </section>
+
+  <!-- ===== TAB THỐNG KÊ ===== -->
+  <section id="view-stats" class="hidden">
+    <div class="panel">
+      <h3>Thu – chi theo tháng <span class="legend"><span style="background:var(--green2)"></span>Thu<span style="background:#ef8a8a"></span>Chi</span></h3>
+      <div class="chart" id="chart"></div>
+    </div>
+    <div class="grid2">
+      <div class="panel"><h3 class="thu">Cơ cấu khoản thu</h3><div id="cat-thu"></div></div>
+      <div class="panel"><h3 class="chi">Cơ cấu khoản chi</h3><div id="cat-chi"></div></div>
+    </div>
+  </section>
+</main>
+
+<!-- ===== FORM THÊM / SỬA ===== -->
+<div class="modal-bg hidden" id="modal">
+  <form class="modal" id="form" onsubmit="saveForm(event)">
+    <h2 id="form-title">Thêm giao dịch</h2>
+    <input type="hidden" id="tx-id">
+    <div class="form-row"><label>Tên giao dịch</label><input id="tx-title" required></div>
+    <div class="grid2">
+      <div class="form-row"><label>Loại</label><select id="tx-type" onchange="fillCategories()"><option value="chi">Chi</option><option value="thu">Thu</option></select></div>
+      <div class="form-row"><label>Danh mục</label><select id="tx-cat"></select></div>
+      <div class="form-row"><label>Số tiền (VNĐ)</label><input id="tx-amount" type="number" min="1" required></div>
+      <div class="form-row"><label>Ngày</label><input id="tx-date" type="date" required></div>
+    </div>
+    <div class="form-row"><label>Trạng thái</label><select id="tx-status"><option value="cho_xu_ly">Chờ xử lý</option><option value="hoan_thanh">Hoàn thành</option></select></div>
+    <div class="form-row"><label>Ghi chú</label><textarea id="tx-note" rows="2"></textarea></div>
+    <div class="err" id="form-err"></div>
+    <div style="text-align:right"><button type="button" class="btn btn-light" onclick="closeForm()">Huỷ</button> <button class="btn btn-primary">Lưu</button></div>
+  </form>
+</div>
+<div class="toast hidden" id="toast"></div>
+
+<script>
+const money = (n) => Number(n).toLocaleString('vi-VN') + ' đ';
+const STATUS = { cho_xu_ly: 'Chờ xử lý', hoan_thanh: 'Hoàn thành' };
+let categories = [];
+
+async function api(url, opt = {}) {
+  const r = await fetch(url, { headers: { 'Content-Type': 'application/json' }, ...opt });
+  const data = await r.json();
+  if (!r.ok) throw new Error((data.errors || [data.error]).join(', '));
+  return data;
+}
+function toast(msg) { const t = document.getElementById('toast'); t.textContent = msg; t.classList.remove('hidden'); setTimeout(() => t.classList.add('hidden'), 2000); }
+
+function showTab(name) {
+  ['list', 'stats'].forEach(n => {
+    document.getElementById('view-' + n).classList.toggle('hidden', n !== name);
+    document.getElementById('tab-' + n).classList.toggle('active', n === name);
+  });
+  if (name === 'stats') loadStats();
+}
+
+// ----- Thẻ tổng quan -----
+async function loadCards() {
+  const { totals: t } = await api('/api/stats');
+  document.getElementById('cards').innerHTML = `
+    <div class="card"><div class="label">Tổng thu</div><div class="value thu">${money(t.tong_thu)}</div></div>
+    <div class="card"><div class="label">Tổng chi</div><div class="value chi">${money(t.tong_chi)}</div></div>
+    <div class="card"><div class="label">Số dư</div><div class="value ${t.so_du >= 0 ? 'thu' : 'chi'}">${money(t.so_du)}</div></div>
+    <div class="card"><div class="label">Giao dịch (hoàn thành / chờ)</div><div class="value">${t.hoan_thanh} / ${t.cho_xu_ly}</div></div>`;
+}
+
+// ----- Danh sách -----
+async function loadList() {
+  const p = new URLSearchParams();
+  [['q', 'f-q'], ['type', 'f-type'], ['status', 'f-status'], ['month', 'f-month']].forEach(([k, id]) => {
+    const v = document.getElementById(id).value; if (v) p.set(k, v);
+  });
+  const list = await api('/api/transactions?' + p);
+  document.getElementById('rows').innerHTML = list.map(t => `
+    <tr>
+      <td>${t.id}</td><td>${t.date.split('-').reverse().join('/')}</td><td>${escapeHtml(t.title)}</td>
+      <td>${t.category_name || ''}</td><td class="${t.type}">${t.type === 'thu' ? 'Thu' : 'Chi'}</td>
+      <td class="num ${t.type}">${t.type === 'thu' ? '+' : '-'}${money(t.amount)}</td>
+      <td><button class="badge ${t.status}" title="Bấm để đổi trạng thái" onclick="toggleStatus(${t.id}, '${t.status}')">${STATUS[t.status]}</button></td>
+      <td class="actions"><button class="btn btn-light" onclick="openForm(${t.id})">Sửa</button><button class="btn btn-danger" onclick="removeTx(${t.id})">Xoá</button></td>
+    </tr>`).join('') || '<tr><td colspan="8" style="text-align:center;color:#888">Không có giao dịch</td></tr>';
+}
+function escapeHtml(s) { return s.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
+
+async function toggleStatus(id, cur) {
+  await api(`/api/transactions/${id}/status`, { method: 'PATCH', body: JSON.stringify({ status: cur === 'hoan_thanh' ? 'cho_xu_ly' : 'hoan_thanh' }) });
+  toast('Đã cập nhật trạng thái'); refresh();
+}
+async function removeTx(id) {
+  if (!confirm('Xoá giao dịch #' + id + '?')) return;
+  await api('/api/transactions/' + id, { method: 'DELETE' });
+  toast('Đã xoá giao dịch'); refresh();
+}
+
+// ----- Form thêm / sửa -----
+function fillCategories(selected) {
+  const type = document.getElementById('tx-type').value;
+  document.getElementById('tx-cat').innerHTML = categories.filter(c => c.type === type)
+    .map(c => `<option value="${c.id}" ${c.id == selected ? 'selected' : ''}>${c.name}</option>`).join('');
+}
+async function openForm(id) {
+  document.getElementById('form').reset();
+  document.getElementById('form-err').textContent = '';
+  document.getElementById('tx-id').value = id || '';
+  document.getElementById('form-title').textContent = id ? 'Sửa giao dịch #' + id : 'Thêm giao dịch';
+  if (id) {
+    const t = await api('/api/transactions/' + id);
+    ['title', 'type', 'amount', 'date', 'status', 'note'].forEach(k => document.getElementById('tx-' + k).value = t[k] ?? '');
+    fillCategories(t.category_id);
+  } else {
+    document.getElementById('tx-date').value = new Date().toISOString().slice(0, 10);
+    fillCategories();
+  }
+  document.getElementById('modal').classList.remove('hidden');
+}
+function closeForm() { document.getElementById('modal').classList.add('hidden'); }
+async function saveForm(e) {
+  e.preventDefault();
+  const id = document.getElementById('tx-id').value;
+  const body = {
+    title: document.getElementById('tx-title').value, type: document.getElementById('tx-type').value,
+    category_id: Number(document.getElementById('tx-cat').value), amount: Number(document.getElementById('tx-amount').value),
+    date: document.getElementById('tx-date').value, status: document.getElementById('tx-status').value, note: document.getElementById('tx-note').value,
+  };
+  try {
+    await api('/api/transactions' + (id ? '/' + id : ''), { method: id ? 'PUT' : 'POST', body: JSON.stringify(body) });
+    closeForm(); toast(id ? 'Đã cập nhật giao dịch' : 'Đã thêm giao dịch'); refresh();
+  } catch (err) { document.getElementById('form-err').textContent = err.message; }
+}
+
+// ----- Thống kê -----
+async function loadStats() {
+  const s = await api('/api/stats');
+  const max = Math.max(1, ...s.byMonth.flatMap(m => [m.thu, m.chi]));
+  document.getElementById('chart').innerHTML = s.byMonth.map(m => `
+    <div class="grp"><div class="bars">
+      <div class="bar thu" style="height:${m.thu / max * 180}px" title="Thu ${money(m.thu)}"></div>
+      <div class="bar chi" style="height:${m.chi / max * 180}px" title="Chi ${money(m.chi)}"></div>
+    </div><div class="m">${m.month.split('-').reverse().join('/')}</div></div>`).join('');
+  ['thu', 'chi'].forEach(type => {
+    const items = s.byCategory.filter(c => c.type === type);
+    const total = items.reduce((a, c) => a + c.total, 0) || 1;
+    document.getElementById('cat-' + type).innerHTML = items.map(c => `
+      <div class="hbar"><div class="name">${c.name}</div>
+      <div class="track"><div class="fill" style="width:${c.total / total * 100}%;background:${type === 'thu' ? 'var(--green2)' : '#ef8a8a'}"></div></div>
+      <div class="amt">${money(c.total)} (${Math.round(c.total / total * 100)}%)</div></div>`).join('');
+  });
+}
+
+function refresh() { loadCards(); loadList(); if (!document.getElementById('view-stats').classList.contains('hidden')) loadStats(); }
+
+(async () => {
+  categories = await api('/api/categories');
+  refresh();
+  // Hỗ trợ mở thẳng màn hình qua URL: #stats, #add, #edit-<id>
+  const h = location.hash;
+  if (h === '#stats') showTab('stats');
+  if (h === '#add') openForm();
+  if (h.startsWith('#edit-')) openForm(Number(h.slice(6)));
+})();
+</script>
+</body>
+</html>
